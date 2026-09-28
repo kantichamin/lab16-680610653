@@ -6,16 +6,24 @@ import { ThemeProvider } from "@/components/theme-provider";
 import RootLayout from "@/layouts/root-layout";
 import HomePage from "@/pages/home";
 import AdminEnrollmentsPage from "@/pages/admin/enrollments";
+import AdminCoursesPage from "@/pages/admin/courses";
 
 import "./index.css";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <RootLayout />,
+    element: (
+      <RootLayout
+        firstName="Kanticha"
+        lastName="Chaichana"
+        studentId="680610653"
+      />
+    ),
     children: [
       { index: true, element: <HomePage /> },
       { path: "admin/enrollments", element: <AdminEnrollmentsPage /> },
+      { path: "admin/courses", element: <AdminCoursesPage /> },
     ],
   },
 ]);
@@ -25,5 +33,5 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <RouterProvider router={router} />
     </ThemeProvider>
-  </StrictMode>
+  </StrictMode>,
 );

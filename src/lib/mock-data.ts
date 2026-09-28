@@ -6,36 +6,41 @@ export const students: Student[] = [
     firstName: "Matt",
     lastName: "Damon",
     program: "CPE",
+    status: "Active",
+    enrolledCourses: [],
   },
   {
     studentId: "650610002",
     firstName: "Cillian",
     lastName: "Murphy",
     program: "CPE",
-    courses: ["261207", "261497"],
+    status: "Active",
+    enrolledCourses: ["CPE301", "CPE302"],
   },
   {
     studentId: "650610003",
     firstName: "Emily",
     lastName: "Blunt",
     program: "ISNE",
-    courses: ["269101", "261497"],
+    status: "Active",
+    enrolledCourses: ["ISNE101", "CPE302"],
   },
 ];
 
+
 export const courses: Course[] = [
   {
-    courseId: "261207",
+    courseCode: "CPE301",
     courseTitle: "Basic Computer Engineering Lab",
     instructors: ["Dome", "Chanadda"],
   },
   {
-    courseId: "261497",
+    courseCode: "CPE302",
     courseTitle: "Full Stack Development",
     instructors: ["Dome", "Nirand", "Chanadda"],
   },
   {
-    courseId: "269101",
+    courseCode: "ISNE101",
     courseTitle: "Introduction to Information Systems and Network Engineering",
     instructors: ["KENNETH COSH"],
   },

@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { PlusCircle } from "lucide-react";
-
+import { PlusCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +26,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
+import * as React from "react";
+import { Badge } from "@/components/ui/badge";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEnrollmentStore } from "@/lib/enrollment-store";
 
@@ -48,10 +62,10 @@ function OptionSelect({
   return (
     <Select
       items={options}
-      value={value}
+      value={value ?? undefined}
       onValueChange={(v) => onChange(v as string)}
     >
-      <SelectTrigger id={id} className="w-full">
+      <SelectTrigger id={id} className="w-full min-w-0">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -66,60 +80,55 @@ function OptionSelect({
 }
 
 export default function AdminEnrollmentsPage() {
-  const { students, courses, enrollments, enroll } = useEnrollmentStore();
+  const { students, courses, enroll, drop } = useEnrollmentStore();
 
-  const [formStudent, setFormStudent] = useState<string | null>(null);
   const [formCourse, setFormCourse] = useState<string | null>(null);
+  const [formStudent, setFormStudent] = useState<string[]>([]);
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+
   const [mode, setMode] = useState<"course" | "student">("course");
   const [filterCourse, setFilterCourse] = useState("all");
   const [filterStudent, setFilterStudent] = useState("all");
+  const anchor = useComboboxAnchor();
 
   const studentOptions: Option[] = students.map((s) => ({
     value: s.studentId,
     label: `${s.studentId} — ${s.firstName} ${s.lastName}`,
   }));
   const courseOptions: Option[] = courses.map((c) => ({
-    value: c.courseId,
-    label: `${c.courseId} — ${c.courseTitle}`,
+    value: c.courseCode,
+    label: `${c.courseCode} — ${c.courseTitle}`,
   }));
 
-  // วิชาที่นักศึกษาที่เลือกยังไม่ได้ลงทะเบียน
-  const availableCourseOptions = courseOptions.filter(
-    (c) =>
-      !enrollments.some(
-        (e) => e.studentId === formStudent && e.courseId === c.value
-      )
+  const availableStudents = students.filter(
+    (s) => !s.enrolledCourses.some((e) => e === formCourse),
   );
 
   const handleEnroll = () => {
-    if (!formStudent || !formCourse) return;
+    if (!formStudent?.length || !formCourse) return;
     enroll(formStudent, formCourse);
     setEnrollDialogOpen(false);
   };
 
-  // เคลียร์ฟอร์มทุกครั้งที่ Dialog ปิด ไม่ว่าจะปิดเพราะลงทะเบียนสำเร็จ, กด X,
-  // หรือคลิกนอก Dialog — เปิดครั้งหน้าจะได้เริ่มจากฟอร์มว่างเสมอ
   const handleEnrollDialogOpenChange = (open: boolean) => {
     setEnrollDialogOpen(open);
     if (!open) {
-      setFormStudent(null);
       setFormCourse(null);
+      setFormStudent([]);
     }
   };
 
-  const rows = enrollments.filter((e) =>
-    mode === "course"
-      ? filterCourse === "all" || e.courseId === filterCourse
-      : filterStudent === "all" || e.studentId === filterStudent
-  );
-
-  const nameOf = (studentId: string) => {
-    const s = students.find((x) => x.studentId === studentId);
-    return s ? `${s.firstName} ${s.lastName}` : "-";
-  };
-  const titleOf = (courseId: string) =>
-    courses.find((c) => c.courseId === courseId)?.courseTitle ?? "-";
+  const rows = courses
+    .filter((c) => filterCourse === "all" || c.courseCode === filterCourse)
+    .filter(
+      (course) =>
+        filterStudent === "all" ||
+        students.some(
+          (s) =>
+            s.studentId === filterStudent &&
+            s.enrolledCourses.includes(course.courseCode),
+        ),
+    );
 
   return (
     <div className="space-y-4">
@@ -130,7 +139,10 @@ export default function AdminEnrollmentsPage() {
         </p>
       </div>
 
-      <Dialog open={enrollDialogOpen} onOpenChange={handleEnrollDialogOpenChange}>
+      <Dialog
+        open={enrollDialogOpen}
+        onOpenChange={handleEnrollDialogOpenChange}
+      >
         <DialogTrigger render={<Button />}>
           <PlusCircle className="h-4 w-4" />
           ลงทะเบียนให้นักศึกษา
@@ -139,42 +151,81 @@ export default function AdminEnrollmentsPage() {
           <DialogHeader>
             <DialogTitle>ลงทะเบียนให้นักศึกษา</DialogTitle>
             <DialogDescription>
-              เลือกนักศึกษาก่อน แล้วเลือกวิชาที่ยังไม่ได้ลงทะเบียน
+              เลือกวิชาก่อน แล้วเลือกนักศึกษาที่ยังไม่ได้ลงทะเบียนวิชานั้น
+              (เลือกได้มากกว่า 1 คน)
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="formStudent">นักศึกษา</Label>
-              <OptionSelect
-                id="formStudent"
-                options={studentOptions}
-                value={formStudent}
-                placeholder="เลือกนักศึกษา"
-                onChange={(v) => {
-                  setFormStudent(v);
-                  setFormCourse(null);
-                }}
-              />
-            </div>
-            <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-4">
+            <div className="grid min-w-0 gap-1.5">
               <Label htmlFor="formCourse">วิชา</Label>
               <OptionSelect
                 id="formCourse"
-                options={availableCourseOptions}
+                options={courseOptions}
                 value={formCourse}
-                placeholder={
-                  formStudent && availableCourseOptions.length === 0
-                    ? "ลงทะเบียนครบทุกวิชาแล้ว"
-                    : "เลือกวิชา"
-                }
-                onChange={setFormCourse}
+                placeholder="เลือกวิชา"
+                onChange={(v) => {
+                  setFormCourse(v);
+                  setFormStudent([]);
+                }}
               />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="formStudentSelect">นักศึกษา</Label>
+              <Combobox
+                multiple
+                autoHighlight
+                id="formStudent"
+                items={availableStudents}
+                value={formStudent}
+                onValueChange={(v) => setFormStudent(v as string[])}
+              >
+                <ComboboxChips
+                  ref={anchor}
+                  className="flex min-h-8 flex-wrap items-center gap-1 rounded-lg min-w-0"
+                >
+                  <ComboboxValue>
+                    {(values) => (
+                      <React.Fragment>
+                        {values.map((value: string) => (
+                          <ComboboxChip key={value}>{value}</ComboboxChip>
+                        ))}
+                        <ComboboxChipsInput
+                          placeholder={
+                            formStudent?.length
+                              ? ""
+                              : formCourse
+                                ? "ค้นหา/เลือกนักศึกษา"
+                                : "เลือกวิชาก่อน"
+                          }
+                        />
+                      </React.Fragment>
+                    )}
+                  </ComboboxValue>
+                </ComboboxChips>
+                <ComboboxContent anchor={anchor}>
+                  <ComboboxEmpty>No items found.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem
+                        key={item.studentId}
+                        value={`${item.firstName} ${item.lastName}`}
+                      >
+                        {item.studentId} — {item.firstName} {item.lastName}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </div>
           </div>
           <DialogFooter>
-            <Button disabled={!formStudent || !formCourse} onClick={handleEnroll}>
+            <Button
+              disabled={!formCourse || formStudent.length === 0}
+              onClick={handleEnroll}
+            >
               <PlusCircle className="h-4 w-4" />
-              ลงทะเบียน
+              ลงทะเบียน ({formStudent?.length} คน)
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -194,6 +245,7 @@ export default function AdminEnrollmentsPage() {
             options={[{ value: "all", label: "ทุกวิชา" }, ...courseOptions]}
             value={filterCourse}
             onChange={setFilterCourse}
+            placeholder="ทุกวิชา"
           />
         </TabsContent>
         <TabsContent value="student" className="pt-2">
@@ -202,6 +254,7 @@ export default function AdminEnrollmentsPage() {
             options={[{ value: "all", label: "ทุกคน" }, ...studentOptions]}
             value={filterStudent}
             onChange={setFilterStudent}
+            placeholder="ทุกคน"
           />
         </TabsContent>
       </Tabs>
@@ -210,12 +263,13 @@ export default function AdminEnrollmentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>รหัสนักศึกษา</TableHead>
-              <TableHead>ชื่อ-นามสกุล</TableHead>
               <TableHead>รหัสวิชา</TableHead>
               <TableHead>ชื่อวิชา</TableHead>
+              <TableHead>จำนวน นศ.</TableHead>
+              <TableHead>นักศึกษาที่ลงทะเบียน</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
@@ -227,14 +281,53 @@ export default function AdminEnrollmentsPage() {
                 </TableCell>
               </TableRow>
             )}
-            {rows.map((e) => (
-              <TableRow key={`${e.studentId}-${e.courseId}`}>
-                <TableCell>{e.studentId}</TableCell>
-                <TableCell>{nameOf(e.studentId)}</TableCell>
-                <TableCell>{e.courseId}</TableCell>
-                <TableCell>{titleOf(e.courseId)}</TableCell>
-              </TableRow>
-            ))}
+
+            {rows.map((course) => {
+              const enrolledStudents = students.filter((s) =>
+                s.enrolledCourses.includes(course.courseCode),
+              );
+
+              return (
+                <TableRow key={course.courseCode}>
+                  <TableCell className="font-medium">
+                    {course.courseCode}
+                  </TableCell>
+                  <TableCell>{course.courseTitle}</TableCell>
+
+                  <TableCell>{enrolledStudents.length}</TableCell>
+
+                  <TableCell>
+                    {enrolledStudents.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {enrolledStudents.map((student) => (
+                          <Badge
+                            key={student.studentId}
+                            variant="outline"
+                            className="gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+                          >
+                            {student.firstName} {student.lastName}
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="rounded-full p-0.5 hover:bg-blue-800/60"
+                              onClick={() =>
+                                drop(student.studentId, course.courseCode)
+                              }
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        ยังไม่มีนักศึกษาลงทะเบียน
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

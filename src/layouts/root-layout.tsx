@@ -9,7 +9,17 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-export default function RootLayout() {
+interface RootLayoutProps {
+  firstName: string;
+  lastName: string;
+  studentId: string;
+}
+
+export default function RootLayout({
+  firstName,
+  lastName,
+  studentId,
+}: RootLayoutProps) {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -18,14 +28,18 @@ export default function RootLayout() {
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-4" />
-            <span className="text-sm font-medium">ระบบลงทะเบียนเรียน</span>
+            <span className="text-sm font-medium">
+              จัดการวิชาเรียนและสถานะนักศึกษา
+            </span>
           </div>
           <ModeToggle />
         </header>
         <main className="flex-1 p-4">
           <Outlet />
         </main>
-        <footer className="border-t p-4 text-center text-xs text-muted-foreground"></footer>
+        <footer className="border-t p-4 text-center text-xs text-muted-foreground">
+          จัดทำโดย {firstName} {lastName} — รหัสนักศึกษา {studentId}
+        </footer>
       </SidebarInset>
     </SidebarProvider>
   );
